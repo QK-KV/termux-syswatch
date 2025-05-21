@@ -14,7 +14,7 @@
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/termux-syswatch.git
+git clone https://github.com/T6ARB/termux-syswatch.git
 cd termux-syswatch
 pkg install python -y
 pip install -r requirements.txt
