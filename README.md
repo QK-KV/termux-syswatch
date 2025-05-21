@@ -15,6 +15,15 @@
 
 ```bash
 git clone https://github.com/T6ARB/termux-syswatch.git
+```
+```bash
 cd termux-syswatch
+```
+```bash
 pkg install python -y
+```
+```bash
 pip install -r requirements.txt
+```
+```bash
+python monitor.py
