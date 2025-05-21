@@ -4,6 +4,9 @@ import subprocess
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
+from rich.progress import Progress, BarColumn, TextColumn, ProgressColumn
+from rich.text import Text
+from datetime import datetime
 
 console = Console()
 
@@ -27,15 +30,8 @@ def get_cpu_percent():
                         usage = 100 - idle
                         return usage
         return 0.0
-    except Exception as e:
+    except Exception:
         return 0.0
-
-def cpu_usage_bar(usage):
-    total_blocks = 30
-    filled_blocks = int((usage / 100) * total_blocks)
-    empty_blocks = total_blocks - filled_blocks
-    bar = "[" + ("#" * filled_blocks) + ("-" * empty_blocks) + "]"
-    return bar
 
 def get_network_usage():
     try:
@@ -53,20 +49,44 @@ def get_network_usage():
     except Exception:
         return None, None
 
+def colorize_percent(value):
+    if value < 50:
+        return "green"
+    elif value < 75:
+        return "yellow"
+    else:
+        return "red"
+
+def create_progress_bar(percentage):
+    bar_length = 30
+    filled_length = int(bar_length * percentage // 100)
+    empty_length = bar_length - filled_length
+    bar = ("█" * filled_length) + ("─" * empty_length)
+    color = colorize_percent(percentage)
+    return f"[{color}]{bar}[/{color}]"
+
 def create_table():
-    table = Table(title="System Monitor", style="bold cyan")
+    table = Table(title="System Monitor", style="bold cyan", expand=True, border_style="bright_blue")
+
     table.add_column("Component", justify="right", style="bold yellow")
     table.add_column("Usage", justify="left", style="bold green")
 
+    # CPU
     cpu_percent = get_cpu_percent()
-    bar = cpu_usage_bar(cpu_percent)
-    table.add_row("CPU Usage", f"{bar} {cpu_percent:.1f}%")
+    cpu_bar = create_progress_bar(cpu_percent)
+    cpu_text = f"{cpu_bar} {cpu_percent:.1f}%"
+    table.add_row("CPU Usage", cpu_text)
 
+    # Memory
     mem = psutil.virtual_memory()
     mem_used = get_size(mem.used)
     mem_total = get_size(mem.total)
-    table.add_row("Memory Usage", f"{mem_used} / {mem_total} ({mem.percent}%)")
+    mem_percent = mem.percent
+    mem_bar = create_progress_bar(mem_percent)
+    mem_text = f"{mem_used} / {mem_total} ({mem_percent}%) {mem_bar}"
+    table.add_row("Memory Usage", mem_text)
 
+    # Network
     bytes_recv, bytes_sent = get_network_usage()
     if bytes_recv is not None and bytes_sent is not None:
         table.add_row("Bytes Received", get_size(bytes_recv))
@@ -74,6 +94,10 @@ def create_table():
     else:
         table.add_row("Bytes Received", "Permission denied")
         table.add_row("Bytes Sent", "Permission denied")
+
+    # Current Time
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    table.add_row("Timestamp", now)
 
     return table
 
