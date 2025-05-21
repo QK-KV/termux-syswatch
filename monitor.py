@@ -4,8 +4,6 @@ import subprocess
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
-from rich.progress import BarColumn, Progress, TextColumn, ProgressColumn
-from rich.text import Text
 
 console = Console()
 
@@ -21,10 +19,9 @@ def get_cpu_percent():
         output = subprocess.check_output(["top", "-n", "1", "-b"], universal_newlines=True)
         for line in output.splitlines():
             if "CPU" in line or "cpu" in line:
-                # مثال سطر: "Cpu(s): 10.3%us,  4.0%sy,  0.0%ni, 85.7%id,  0.0%wa,  0.0%hi,  0.0%si,  0.0%st"
                 parts = line.split(",")
                 for part in parts:
-                    if "id" in part:  # نسبة الخمول idle
+                    if "id" in part:
                         idle_str = part.strip().split("%")[0]
                         idle = float(idle_str)
                         usage = 100 - idle
@@ -40,26 +37,43 @@ def cpu_usage_bar(usage):
     bar = "[" + ("#" * filled_blocks) + ("-" * empty_blocks) + "]"
     return bar
 
+def get_network_usage():
+    try:
+        with open("/proc/net/dev", "r") as f:
+            data = f.readlines()
+        bytes_recv = 0
+        bytes_sent = 0
+        for line in data[2:]:
+            parts = line.split()
+            if len(parts) < 17:
+                continue
+            bytes_recv += int(parts[1])
+            bytes_sent += int(parts[9])
+        return bytes_recv, bytes_sent
+    except Exception:
+        return None, None
+
 def create_table():
     table = Table(title="System Monitor", style="bold cyan")
     table.add_column("Component", justify="right", style="bold yellow")
     table.add_column("Usage", justify="left", style="bold green")
 
-    # CPU Usage as bar + percent
     cpu_percent = get_cpu_percent()
     bar = cpu_usage_bar(cpu_percent)
     table.add_row("CPU Usage", f"{bar} {cpu_percent:.1f}%")
 
-    # Memory
     mem = psutil.virtual_memory()
     mem_used = get_size(mem.used)
     mem_total = get_size(mem.total)
     table.add_row("Memory Usage", f"{mem_used} / {mem_total} ({mem.percent}%)")
 
-    # Network
-    net = psutil.net_io_counters()
-    table.add_row("Bytes Received", get_size(net.bytes_recv))
-    table.add_row("Bytes Sent", get_size(net.bytes_sent))
+    bytes_recv, bytes_sent = get_network_usage()
+    if bytes_recv is not None and bytes_sent is not None:
+        table.add_row("Bytes Received", get_size(bytes_recv))
+        table.add_row("Bytes Sent", get_size(bytes_sent))
+    else:
+        table.add_row("Bytes Received", "Permission denied")
+        table.add_row("Bytes Sent", "Permission denied")
 
     return table
 
